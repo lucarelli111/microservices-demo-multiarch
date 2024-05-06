@@ -260,3 +260,104 @@ minikube start
 ## Misc
 
 **Swagstore** is a heavily modified version from the original [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo). In fact, items on the Swagstore are actually Datadog swags.
+
+
+### K8S stuff
+
+Git
+> git clone https://github.com/smazzone/microservices-demo-multiarch.git
+<gcloud>:  https://cloud.google.com/sdk/docs/install,
+> gcloud auth login  #Authenticate yourself
+> gcloud config set project datadog-sandbox  #Set the default project
+OR
+> gcloud components update #For update
+< kubectl >
+> gcloud components install kubectl
+> kubectl version --client  #To verify
+<GKE - Auth Plugin>
+> gcloud components install gke-gcloud-auth-plugin (open new sh session)
+> gke-gcloud-auth-plugin --version  #To verify
+<GKE Cluster>
+> gcloud container clusters create paisan-swagstore-stdcluster --enable-autoupgrade --enable-autoscaling --min-nodes=2 --max-nodes=10 --num-nodes=3 --zone=us-east1 --project=datadog-sandbox --labels=team=cake,creator=paisan-areeprasertkul  --enable-ip-alias --create-subnetwork name=paisan-subnet-2
+> gcloud container clusters get-credentials paisan-swagstore-stdcluster --location=us-east1 --project=datadog-sandbox
+Current context for kubectl:
+“Gcloud clusters create” automatically added an entry to kubeconfig ($HOME/.kube/config) file in your computer, and the current context changes to that cluster.  To verify -> kubectl config current-context
+
+Best Practices - use Kubernetes Secrets for DD_API_KEY and DD_APP_KEY
+> kubectl create secret generic paisan-secret --from-literal api-key=<DD_API_KEY> --from-literal app-key=<DD_APP_KEY>
+
+<Helm> > https://v3.helm.sh/docs/intro/install/
+Install Helm and run 'helm version' to verify
+Add the Datadog repository to your Helm repositories:
+> helm repo add datadog https://helm.datadoghq.com (one-time only)
+> helm repo update
+For DD agents using Helm chart v2.7.0, the Cluster Agent is enabled by default.
+https://github.com/DataDog/helm-charts/blob/main/charts/datadog/values.yaml
+
+> helm install datadog-agent -f ../Downloads/values.yaml --set targetSystem=linux --set datadog.kubeStateMetricsEnabled=false datadog/datadog
+> kubectl get pods | grep agent
+
+[Bonus] To verify the Node Agent has successfully connected to the Cluster Agent:
+> kubectl exec -it <AGENT_POD_NAME> -- agent status
+
+To uninstall DD agent:
+> helm uninstall datadog-agent
+
+To modify DD agent’s configurations:
+> helm upgrade -f ../Downloads/values.yaml datadog-agent datadog/datadog
+
+Additional DD agent configurations (Ref):
+To collect cluster’s metrics as well:
+> gcloud container clusters update paisan-swagstore-stdcluster \ 
+   --location=us-east1 \ 
+  --monitoring=SYSTEM,API_SERVER,SCHEDULER,CONTROLLER_MANAGER
+
+<GCP Artifact Registry>
+> gcloud artifacts repositories create paisan-repo-multiarch --repository-format=docker --location=us-east1 --labels=team=cake,creator=paisan-areeprasertkul
+
+Configure the docker CLI to authenticate to Artifact Registry: register gcloud as a Docker credential helper
+> gcloud auth configure-docker us-east1-docker.pkg.dev
+
+<Skaffold> <https://skaffold.dev/docs/workflows/handling-platforms/>
+> brew install skaffold
+
+There are pros & cons of building on your local computer vs Cloud.
+To add Google Cloud Build profile to skaffold.yaml:
+profiles:
+- name: gcb
+  build:
+    googleCloudBuild:
+      diskSizeGb: 300
+      machineType: N1_HIGHCPU_32
+      timeout: 4000s
+
+> skaffold run -p gcb --default-repo  us-east1-docker.pkg.dev/datadog-sandbox/paisan-repo-multiarch --platform=linux/amd64
+
+To get the public IP address of frontend service:
+> kubectl get service frontend-external
+
+To create an Ingress:
+paisan-ingress.yaml (cmd:> kubectl apply -f <your ingress>.yaml) - it takes a few minutes 
+before it is ready to serve the website:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: paisan-gke-ingress
+spec:
+  defaultBackend:
+    service:
+      name: frontend-external # Name of the Service targeted by the Ingress
+      port:
+        number: 80 # Should match the port used by the Service
+
+
+Rebuild & Redeploy 
+> skaffold delete
+> skaffold run . . .
+
+Stop All Deployments
+	> kubectl scale deployment $(kubectl --namespace default get deployment | 
+awk '{print $1}') --replicas 0
+ 
+

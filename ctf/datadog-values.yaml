@@ -27,6 +27,10 @@ clusterAgent:
   createPodDisruptionBudget: true
 
 datadog:
+
+  # Disable state metrics
+  kubeStateMetricsEnabled: false
+
   ## Set APIkey and APPKey Optionally the site
   apiKeyExistingSecret: datadog-secret
   appKeyExistingSecret: datadog-secret
@@ -81,14 +85,14 @@ datadog:
     enabled: true
 
   ## Set up kubelet communication configuration
-  kubelet:
-    host:
-      valueFrom:
-        fieldRef:
-          fieldPath: status.hostIP
+  #kubelet:
+  #  host:
+  #    valueFrom:
+  #      fieldRef:
+  #        fieldPath: status.hostIP
   # Enable data to be sent with invalid certs (required for kind cluster)
-    tlsVerify: false
-  clusterName: tsko2024
+  #  tlsVerify: false
+  #clusterName: tsko2024
 
   ## Set up global environment for agent and pods communication
   env:
@@ -124,16 +128,16 @@ datadog:
           endpoint: "0.0.0.0:4318"
           # datadog.otlp.receiver.protocols.http.useHostPort -- Enable the Host Port for the OTLP/HTTP endpoint
           useHostPort: true
-agents:
-  containers:
-    systemProbe:
-      env:
-        - name: HOST_PROC
-          value: "/host/root/proc"
-  volumes:
-    - name: host-root-proc
-      hostPath:
-        path: /host/proc
-  volumeMounts:
-    - name: host-root-proc
-      mountPath: /host/root/proc
+#agents:
+#  containers:
+#    systemProbe:
+#      env:
+#        - name: HOST_PROC
+#          value: "/host/root/proc"
+#  volumes:
+#    - name: host-root-proc
+#      hostPath:
+#        path: /host/proc
+#  volumeMounts:
+#    - name: host-root-proc
+#      mountPath: /host/root/proc
