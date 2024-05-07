@@ -76,6 +76,7 @@ func (lh *logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"http.resp.status":  rr.status,
 			"http.resp.bytes":   rr.b}).Debugf("request complete")
 	}()
+	log.Error("something went wrong!")
 
 	ctx = context.WithValue(ctx, ctxKeyLog{}, log)
 	r = r.WithContext(ctx)
